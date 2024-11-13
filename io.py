@@ -16,6 +16,7 @@ from scipy.stats import kurtosis, skew
 from google.colab import drive
 from sklearn.linear_model import LogisticRegression
 from sklearn.utils import resample
+from math import pi
 
 # Constantes
 DRIVE_MOUNT_PATH = "/content/drive"
@@ -31,8 +32,11 @@ TOP_COUNTRIES = 15
 os.makedirs(GRAPHPATH, exist_ok=True)
 os.makedirs(SUMMARYPATH, exist_ok=True)
 
-# Montar o Google Drive
-drive.mount(DRIVE_MOUNT_PATH, force_remount=True)
+# Montar o Google Drive (remover o erro de diretório já existente)
+try:
+    drive.mount(DRIVE_MOUNT_PATH, force_remount=True)
+except ValueError:
+    print(f"{DRIVE_MOUNT_PATH} já contém arquivos.")
 
 # Função para converter números no formato errado (com pontos ao invés de vírgulas)
 def convert_to_float(val):
@@ -74,7 +78,7 @@ def summarize(df, filepath):
     summary['kurtosis'] = df[numeric_cols].apply(kurtosis, axis=0)
     summary.to_csv(filepath)
 
-# Funções de plotagem com fundo preto e paleta viridis
+# Funções de plotagem
 def kde_plot(df, column, title, filename):
     plt.figure(figsize=FIGSIZE)
     sns.set_theme(style="dark", rc={"axes.facecolor": "black", "axes.grid": False})
@@ -94,7 +98,7 @@ def violin_plot(df, x_column, y_column, title, filename):
     plt.title(title, color='white')
     plt.xlabel(x_column, color='white')
     plt.ylabel(y_column, color='white')
-    plt.xticks(rotation=45, ha='right', color='white')  # Rotaciona os nomes dos países no eixo x
+    plt.xticks(rotation=45, ha='right', color='white')
     plt.yticks(color='white')
     plt.savefig(os.path.join(GRAPHPATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
     plt.close()
@@ -129,6 +133,32 @@ def logistic_regression_plot(df, x_column, y_column, title, filename):
     plt.savefig(os.path.join(GRAPHPATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
     plt.close()
 
+# Função para o gráfico radar
+def radar_chart(df, title, filename):
+    categories = list(df.columns)
+    N = len(categories)
+
+    # O radar precisa que os valores estejam em uma escala de 0 a 1
+    values = df.mean().values.flatten().tolist()
+    values += values[:1]  # O radar precisa de um loop, então repetimos o primeiro valor no final
+
+    # Calculando os ângulos dos eixos
+    angles = [n / float(N) * 2 * pi for n in range(N)]
+    angles += angles[:1]
+
+    # Plotando
+    fig, ax = plt.subplots(figsize=FIGSIZE, subplot_kw=dict(polar=True))
+    ax.set_facecolor('black')
+
+    plt.xticks(angles[:-1], categories, color='white', size=8)
+    ax.plot(angles, values, color=PALETTE(0.7), linewidth=2, linestyle='solid')
+    ax.fill(angles, values, color=PALETTE(0.7), alpha=0.4)
+
+    plt.title(title, color='white', size=14)
+    ax.yaxis.set_tick_params(labelcolor='white')
+    plt.savefig(os.path.join(GRAPHPATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
+    plt.close()
+
 # Análise para os principais países
 top_countries = bootstrapped_df.groupby('Entity')['Life Expectancy'].mean().nlargest(TOP_COUNTRIES).index
 top_df = bootstrapped_df[bootstrapped_df['Entity'].isin(top_countries)]
@@ -137,13 +167,16 @@ kde_plot(top_df, 'Life Expectancy', 'KDE - Expectativa de Vida (Top 15)', 'kde_l
 kde_plot(top_df, 'Life Satisfaction', 'KDE - Satisfação de Vida (Top 15)', 'kde_life_satisfaction_top15.png')
 
 violin_plot(top_df, 'Entity', 'Life Expectancy', 'Expectativa de Vida - Gráfico Violino (Top 15)', 'violin_life_expectancy_top15.png')
-violin_plot(top_df, 'Entity', 'Life Satisfaction', 'Satisfação de Vida - Gráfico Violino (Top 15)', 'violin_life_satisfaction_top15.png')
 
 histogram(top_df, 'Life Expectancy', 'Histograma - Expectativa de Vida (Top 15)', 'hist_life_expectancy_top15.png')
 histogram(top_df, 'Life Satisfaction', 'Histograma - Satisfação de Vida (Top 15)', 'hist_life_satisfaction_top15.png')
 
 logistic_regression_plot(top_df, 'Life Expectancy', 'Life Satisfaction', 'Regressão Logística - Expectativa vs. Satisfação de Vida (Top 15)', 'logistic_regression_top15.png')
 
+# Criação de gráficos do tipo radar
+radar_chart(top_df[['Life Expectancy', 'Life Satisfaction']], 'Radar - Expectativa vs. Satisfação de Vida (Top 15)', 'radar_life_expectancy_vs_satisfaction_top15.png')
+
+# Resumo estatístico
 summarize(top_df[['Life Expectancy', 'Life Satisfaction']], os.path.join(SUMMARYPATH, "summary_stats.csv"))
 
 print("Gráficos e resumos gerados com sucesso.")
