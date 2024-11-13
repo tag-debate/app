@@ -7,6 +7,12 @@ Original file is located at
     https://colab.research.google.com/drive/15H7TpzLIZuekyo-m3W-ZMa-NwjS-e9OO
 """
 
+# -*- coding: utf-8 -*-
+"""google_colab_notebook.ipynb
+
+Reformulado com base no io.py original para uso adequado em um notebook Colab.
+"""
+
 import os
 import pandas as pd
 import numpy as np
@@ -14,72 +20,65 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import kurtosis, skew
 from google.colab import drive
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.preprocessing import StandardScaler
 from sklearn.utils import resample
-from math import pi
 
-# Constantes
+# Constantes com os IDs de pastas e URLs relevantes
 DRIVE_MOUNT_PATH = "/content/drive"
-GRAPHPATH = os.path.join(DRIVE_MOUNT_PATH, "MyDrive/graficos")
-SUMMARYPATH = os.path.join(DRIVE_MOUNT_PATH, "MyDrive/sumarios")
+GRAFICOS_PATH = os.path.join(DRIVE_MOUNT_PATH, "MyDrive", "graficos")  # Caminho corrigido para o Google Drive
+SUMARIOS_PATH = os.path.join(DRIVE_MOUNT_PATH, "MyDrive", "sumarios")
 PALETTE = sns.color_palette("viridis", as_cmap=True)
 FIGSIZE = (10, 6)
-CSV_FILEPATH = "https://docs.google.com/spreadsheets/d/1ph_tzoDnLRvzXJNon5fAULSUtBH_u11aNLg2uw0Riqc/export?format=csv&gid=1229730846"
+CSV_FILEPATH = "https://docs.google.com/spreadsheets/d/1ph_tzoDnLRvzXJNon5fAULSUtBH_u11aNLg2uw0Riqc/export?format=csv&gid=1229730846"  # URL alterada para o CSV correto
 N_BOOTSTRAP = 2000
 TOP_COUNTRIES = 15
 
-# Criação de diretórios
-os.makedirs(GRAPHPATH, exist_ok=True)
-os.makedirs(SUMMARYPATH, exist_ok=True)
+# Verificar se o Google Drive já está montado
+if not os.path.ismount(DRIVE_MOUNT_PATH):
+    drive.mount(DRIVE_MOUNT_PATH)
 
-# Montar o Google Drive (remover o erro de diretório já existente)
-try:
-    drive.mount(DRIVE_MOUNT_PATH, force_remount=True)
-except ValueError:
-    print(f"{DRIVE_MOUNT_PATH} já contém arquivos.")
-
-# Função para converter números no formato errado (com pontos ao invés de vírgulas)
+# Função para converter strings numéricas com formato incorreto para float
 def convert_to_float(val):
+    """Converte uma string numérica, possivelmente com separador de milhar, para float."""
     try:
-        # Substitui os pontos por nada e tenta converter para float
         return float(val.replace('.', '').replace(',', '.'))
-    except:
+    except (ValueError, AttributeError):
         return np.nan
 
-# Carregar os dados
+# Carregar os dados do CSV e tratar erros de leitura
 try:
     df = pd.read_csv(CSV_FILEPATH, on_bad_lines='skip')
 
-    # Limpar as colunas de Life Expectancy e Life Satisfaction
+    # Limpeza e conversão de colunas relevantes
     df['Life Expectancy'] = df['Estimates; 1950 - 2020: Annually interpolated demographic indicators - Life expectancy at birth; both sexes combined (years)'].apply(convert_to_float)
     df['Life Satisfaction'] = df['Life satisfaction in Cantril Ladder (World Happiness Report 2022)'].apply(convert_to_float)
-
-    # Converte a coluna de ano para float
     df['Year'] = pd.to_numeric(df['Year'], errors='coerce')
 
-    # Remove linhas com valores faltantes ou inválidos
+    # Remover linhas com valores faltantes nas colunas de interesse
     df = df.dropna(subset=['Year', 'Life Expectancy', 'Life Satisfaction'])
 except Exception as e:
-    print(f"Erro ao carregar os dados: {e}")
+    print(f"Erro ao carregar ou processar os dados: {e}")
     exit()
 
-# Bootstrap resampling
-def bootstrap(df):
-    return resample(df, replace=True, n_samples=len(df))
+# Criar DataFrame de bootstrap amostral
+bootstrapped_df = resample(df, replace=True, n_samples=len(df), random_state=42)
 
-bootstrapped_df = bootstrap(df)
-
-# Resumo estatístico
+# Função para gerar um sumário estatístico
 def summarize(df, filepath):
+    """Calcula e salva um sumário estatístico de colunas numéricas para um arquivo CSV."""
     numeric_cols = df.select_dtypes(include=np.number).columns
     summary = df[numeric_cols].describe().T
     summary['variance'] = df[numeric_cols].var()
     summary['skewness'] = df[numeric_cols].apply(skew, axis=0)
     summary['kurtosis'] = df[numeric_cols].apply(kurtosis, axis=0)
-    summary.to_csv(filepath)
+    summary.to_csv(filepath, decimal=",", sep=";")
 
-# Funções de plotagem
+# Funções para gerar gráficos em diferentes formatos
+
 def kde_plot(df, column, title, filename):
+    """Gera e salva um gráfico de KDE (Kernel Density Estimate)."""
     plt.figure(figsize=FIGSIZE)
     sns.set_theme(style="dark", rc={"axes.facecolor": "black", "axes.grid": False})
     sns.kdeplot(df[column], fill=True, color=PALETTE(0.6))
@@ -88,22 +87,24 @@ def kde_plot(df, column, title, filename):
     plt.ylabel("Density", color='white')
     plt.xticks(color='white')
     plt.yticks(color='white')
-    plt.savefig(os.path.join(GRAPHPATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
+    plt.savefig(os.path.join(GRAFICOS_PATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
     plt.close()
 
 def violin_plot(df, x_column, y_column, title, filename):
+    """Gera e salva um gráfico de violino bipartido."""
     plt.figure(figsize=FIGSIZE)
     sns.set_theme(style="dark", rc={"axes.facecolor": "black", "axes.grid": False})
-    sns.violinplot(data=df, x=x_column, y=y_column, palette="viridis")
+    sns.violinplot(data=df, x=x_column, y=y_column, palette="viridis", split=True)
     plt.title(title, color='white')
     plt.xlabel(x_column, color='white')
     plt.ylabel(y_column, color='white')
     plt.xticks(rotation=45, ha='right', color='white')
     plt.yticks(color='white')
-    plt.savefig(os.path.join(GRAPHPATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
+    plt.savefig(os.path.join(GRAFICOS_PATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
     plt.close()
 
 def histogram(df, column, title, filename, bins=30):
+    """Gera e salva um gráfico de histograma."""
     plt.figure(figsize=FIGSIZE)
     sns.set_theme(style="dark", rc={"axes.facecolor": "black", "axes.grid": False})
     plt.hist(df[column], bins=bins, color=PALETTE(0.6), edgecolor='white', alpha=0.7)
@@ -112,71 +113,51 @@ def histogram(df, column, title, filename, bins=30):
     plt.ylabel('Count', color='white')
     plt.xticks(color='white')
     plt.yticks(color='white')
-    plt.savefig(os.path.join(GRAPHPATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
+    plt.savefig(os.path.join(GRAFICOS_PATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
     plt.close()
 
-def logistic_regression_plot(df, x_column, y_column, title, filename):
+def polynomial_regression_plot(df, x_column, y_column, degree, title, filename):
+    """Gera e salva um gráfico de regressão polinomial."""
     plt.figure(figsize=FIGSIZE)
     sns.set_theme(style="dark", rc={"axes.facecolor": "black", "axes.grid": False})
+
+    # Preparar os dados para regressão polinomial
     x = df[x_column].values.reshape(-1, 1)
-    y = (df[y_column] > df[y_column].mean()).astype(int)
-    model = LogisticRegression().fit(x, y)
-    y_pred = model.predict_proba(x)[:, 1]
-    plt.scatter(x, y, color=PALETTE(0.4), edgecolor='white', label="Dados")
-    plt.plot(x, y_pred, color=PALETTE(0.8), label='Regressão Logística')
+    y = df[y_column].values
+
+    poly = PolynomialFeatures(degree=degree)
+    x_poly = poly.fit_transform(x)
+
+    model = LinearRegression().fit(x_poly, y)
+    y_pred = model.predict(x_poly)
+
+    plt.scatter(x, y, color=PALETTE(0.4), edgecolor='white', label="Data", alpha=0.7)
+    plt.plot(x, y_pred, color=PALETTE(0.8), label=f'Polynomial Regression (Degree {degree})')
     plt.title(title, color='white')
     plt.xlabel(x_column, color='white')
     plt.ylabel(y_column, color='white')
     plt.xticks(color='white')
     plt.yticks(color='white')
     plt.legend()
-    plt.savefig(os.path.join(GRAPHPATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
-    plt.close()
-
-# Função para o gráfico radar
-def radar_chart(df, title, filename):
-    categories = list(df.columns)
-    N = len(categories)
-
-    # O radar precisa que os valores estejam em uma escala de 0 a 1
-    values = df.mean().values.flatten().tolist()
-    values += values[:1]  # O radar precisa de um loop, então repetimos o primeiro valor no final
-
-    # Calculando os ângulos dos eixos
-    angles = [n / float(N) * 2 * pi for n in range(N)]
-    angles += angles[:1]
-
-    # Plotando
-    fig, ax = plt.subplots(figsize=FIGSIZE, subplot_kw=dict(polar=True))
-    ax.set_facecolor('black')
-
-    plt.xticks(angles[:-1], categories, color='white', size=8)
-    ax.plot(angles, values, color=PALETTE(0.7), linewidth=2, linestyle='solid')
-    ax.fill(angles, values, color=PALETTE(0.7), alpha=0.4)
-
-    plt.title(title, color='white', size=14)
-    ax.yaxis.set_tick_params(labelcolor='white')
-    plt.savefig(os.path.join(GRAPHPATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
+    plt.savefig(os.path.join(GRAFICOS_PATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
     plt.close()
 
 # Análise para os principais países
 top_countries = bootstrapped_df.groupby('Entity')['Life Expectancy'].mean().nlargest(TOP_COUNTRIES).index
 top_df = bootstrapped_df[bootstrapped_df['Entity'].isin(top_countries)]
 
-kde_plot(top_df, 'Life Expectancy', 'KDE - Expectativa de Vida (Top 15)', 'kde_life_expectancy_top15.png')
-kde_plot(top_df, 'Life Satisfaction', 'KDE - Satisfação de Vida (Top 15)', 'kde_life_satisfaction_top15.png')
+# Gerar gráficos para os principais países
+kde_plot(top_df, 'Life Expectancy', 'KDE - Life Expectancy (Top 15)', 'kde_life_expectancy_top15.png')
+kde_plot(top_df, 'Life Satisfaction', 'KDE - Life Satisfaction (Top 15)', 'kde_life_satisfaction_top15.png')
 
-violin_plot(top_df, 'Entity', 'Life Expectancy', 'Expectativa de Vida - Gráfico Violino (Top 15)', 'violin_life_expectancy_top15.png')
+# Gráficos de violino bipartido
+violin_plot(top_df, 'Entity', 'Life Expectancy', 'Violin Plot - Life Expectancy by Country (Top 15)', 'violin_life_expectancy_top15.png')
+violin_plot(top_df, 'Entity', 'Life Satisfaction', 'Violin Plot - Life Satisfaction by Country (Top 15)', 'violin_life_satisfaction_top15.png')
 
-histogram(top_df, 'Life Expectancy', 'Histograma - Expectativa de Vida (Top 15)', 'hist_life_expectancy_top15.png')
-histogram(top_df, 'Life Satisfaction', 'Histograma - Satisfação de Vida (Top 15)', 'hist_life_satisfaction_top15.png')
+# Regressão polinomial
+polynomial_regression_plot(top_df, 'Life Expectancy', 'Life Satisfaction', degree=3, title='Polynomial Regression (Degree 3) - Life Expectancy vs. Life Satisfaction', filename='polynomial_regression_life_expectancy_vs_life_satisfaction.png')
 
-logistic_regression_plot(top_df, 'Life Expectancy', 'Life Satisfaction', 'Regressão Logística - Expectativa vs. Satisfação de Vida (Top 15)', 'logistic_regression_top15.png')
+# Gerar sumário estatístico
+summarize(top_df[['Life Expectancy', 'Life Satisfaction']], os.path.join(SUMARIOS_PATH, "summary_stats.csv"))
 
-# Criação de gráficos do tipo radar
-radar_chart(top_df[['Life Expectancy', 'Life Satisfaction']], 'Radar - Expectativa vs. Satisfação de Vida (Top 15)', 'radar_life_expectancy_vs_satisfaction_top15.png')
-
-# Resumo estatístico
-summarize(top_df[['Life Expectancy', 'Life Satisfaction']], os.path.join(SUMMARYPATH, "summary_stats.csv"))
-
-print("Gráficos e resumos gerados com sucesso.")
+print("Gráficos e sumários gerados com sucesso.")
