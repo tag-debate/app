@@ -8,9 +8,9 @@ Original file is located at
 """
 
 # -*- coding: utf-8 -*-
-"""google_colab_notebook.ipynb
+"""google_colab_notebook_reformulated.ipynb
 
-Reformulado com base no io.py original para uso adequado em um notebook Colab.
+Reformulado para corrigir o erro de conversão e exibir os gráficos corretamente.
 """
 
 import os
@@ -22,16 +22,15 @@ from scipy.stats import kurtosis, skew
 from google.colab import drive
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.preprocessing import StandardScaler
 from sklearn.utils import resample
 
 # Constantes com os IDs de pastas e URLs relevantes
 DRIVE_MOUNT_PATH = "/content/drive"
-GRAFICOS_PATH = os.path.join(DRIVE_MOUNT_PATH, "MyDrive", "graficos")  # Caminho corrigido para o Google Drive
+GRAFICOS_PATH = os.path.join(DRIVE_MOUNT_PATH, "MyDrive", "graficos")
 SUMARIOS_PATH = os.path.join(DRIVE_MOUNT_PATH, "MyDrive", "sumarios")
 PALETTE = sns.color_palette("viridis", as_cmap=True)
 FIGSIZE = (10, 6)
-CSV_FILEPATH = "https://docs.google.com/spreadsheets/d/1ph_tzoDnLRvzXJNon5fAULSUtBH_u11aNLg2uw0Riqc/export?format=csv&gid=1229730846"  # URL alterada para o CSV correto
+CSV_FILEPATH = "https://docs.google.com/spreadsheets/d/1ph_tzoDnLRvzXJNon5fAULSUtBH_u11aNLg2uw0Riqc/export?format=csv&gid=1229730846"
 N_BOOTSTRAP = 2000
 TOP_COUNTRIES = 15
 
@@ -85,7 +84,7 @@ def kde_plot(df, column, title, filename):
     plt.title(title, color='white')
     plt.xlabel(column, color='white')
     plt.ylabel("Density", color='white')
-    plt.xticks(color='white')
+    plt.xticks(rotation=45, ha='right', color='white')  # Ajustar rotação dos ticks
     plt.yticks(color='white')
     plt.savefig(os.path.join(GRAFICOS_PATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
     plt.close()
@@ -98,7 +97,7 @@ def violin_plot(df, x_column, y_column, title, filename):
     plt.title(title, color='white')
     plt.xlabel(x_column, color='white')
     plt.ylabel(y_column, color='white')
-    plt.xticks(rotation=45, ha='right', color='white')
+    plt.xticks(rotation=45, ha='right', color='white')  # Ajustar rotação dos ticks
     plt.yticks(color='white')
     plt.savefig(os.path.join(GRAFICOS_PATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
     plt.close()
@@ -111,7 +110,7 @@ def histogram(df, column, title, filename, bins=30):
     plt.title(title, color='white')
     plt.xlabel(column, color='white')
     plt.ylabel('Count', color='white')
-    plt.xticks(color='white')
+    plt.xticks(rotation=45, ha='right', color='white')  # Ajustar rotação dos ticks
     plt.yticks(color='white')
     plt.savefig(os.path.join(GRAFICOS_PATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
     plt.close()
@@ -136,7 +135,7 @@ def polynomial_regression_plot(df, x_column, y_column, degree, title, filename):
     plt.title(title, color='white')
     plt.xlabel(x_column, color='white')
     plt.ylabel(y_column, color='white')
-    plt.xticks(color='white')
+    plt.xticks(rotation=45, ha='right', color='white')  # Ajustar rotação dos ticks
     plt.yticks(color='white')
     plt.legend()
     plt.savefig(os.path.join(GRAFICOS_PATH, filename), dpi=300, bbox_inches='tight', facecolor='black')
